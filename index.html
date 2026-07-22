@@ -56,9 +56,13 @@
     min-width:96px; text-align:center;
   }
   .choice-btn{
-    background:#fff; border-radius:24px; padding:20px 10px;
-    font-size:28px; font-weight:900; box-shadow:0 6px 0 #ddd;
+    background:#fff; border-radius:24px; padding:16px 10px;
+    font-weight:900; box-shadow:0 6px 0 #ddd;
     border:3px solid transparent;
+  }
+  .choice-btn .romaji-text{ font-size:28px; line-height:1.2; }
+  .choice-btn .choice-kana{
+    font-size:16px; font-weight:700; opacity:0.65; margin-top:4px; line-height:1.2;
   }
   .choice-btn.correct{ background:#DFF7E8; border-color:var(--mint-d); color:var(--mint-d); }
   .choice-btn.wrong{ background:#FFE1E1; border-color:#E05D5D; color:#E05D5D; }
@@ -568,12 +572,12 @@ function buildChoices(correctItem){
     if(distractors.length >= 3) break;
     if(seenRomaji.has(cand.r)) continue;
     seenRomaji.add(cand.r);
-    distractors.push(cand.r);
+    distractors.push({ r: cand.r, c: cand.c });
   }
   while(distractors.length < 3){
-    distractors.push(correctItem.r + 'x'.repeat(distractors.length+1));
+    distractors.push({ r: correctItem.r + 'x'.repeat(distractors.length+1), c: '?' });
   }
-  return shuffle([correctItem.r, ...distractors]);
+  return shuffle([{ r: correctItem.r, c: correctItem.c }, ...distractors]);
 }
 
 function renderQuestion(){
@@ -592,11 +596,15 @@ function renderQuestion(){
   const choices = buildChoices(item);
   const grid = document.getElementById('choiceGrid');
   grid.innerHTML = '';
-  choices.forEach(choiceRomaji=>{
+  choices.forEach(choice=>{
     const btn = document.createElement('button');
     btn.className = 'choice-btn';
-    btn.textContent = choiceRomaji;
-    btn.addEventListener('click', ()=> handleAnswer(choiceRomaji, item, btn, grid));
+    btn.dataset.romaji = choice.r;
+    btn.innerHTML = `
+      <div class="romaji-text">${choice.r}</div>
+      <div class="choice-kana hidden">${choice.c}</div>
+    `;
+    btn.addEventListener('click', ()=> handleAnswer(choice.r, item, btn, grid));
     grid.appendChild(btn);
   });
 
@@ -624,11 +632,14 @@ function revealAnswerInfo(item){
 }
 
 function handleAnswer(choiceRomaji, item, btnEl, grid){
-  Array.from(grid.children).forEach(b => b.disabled = true);
+  Array.from(grid.children).forEach(b => {
+    b.disabled = true;
+    b.querySelector('.choice-kana').classList.remove('hidden');
+  });
   const isCorrect = choiceRomaji === item.r;
   btnEl.classList.add(isCorrect ? 'correct' : 'wrong');
   if(!isCorrect){
-    Array.from(grid.children).find(b => b.textContent === item.r)?.classList.add('correct');
+    Array.from(grid.children).find(b => b.dataset.romaji === item.r)?.classList.add('correct');
   }
   beep(isCorrect);
   showFx(isCorrect);
