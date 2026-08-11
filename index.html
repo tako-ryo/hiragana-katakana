@@ -444,6 +444,16 @@ function speakJa(text){
   u.rate = 0.85; u.pitch = 1.15;
   speechSynthesis.speak(u);
 }
+
+/* は and へ are also common particles (pronounced "wa" / "e"), so most
+   Japanese TTS voices misread them when spoken alone as a single letter.
+   Swap to the katakana form for speech only (katakana has no particle
+   reading, so it's always read correctly as "ha" / "he"); the on-screen
+   text still shows the real hiragana character. */
+const TTS_LETTER_OVERRIDE = { 'は':'ハ', 'へ':'ヘ' };
+function speakChar(c){
+  speakJa(`${TTS_LETTER_OVERRIDE[c] || c}！`);
+}
 let audioCtx = null;
 function getCtx(){
   if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -608,8 +618,8 @@ function renderQuestion(){
     grid.appendChild(btn);
   });
 
-  document.getElementById('quizSpeakBtn').onclick = ()=> speakJa(`${item.c}！`);
-  speakJa(`${item.c}！`);
+  document.getElementById('quizSpeakBtn').onclick = ()=> speakChar(item.c);
+  speakChar(item.c);
 }
 
 function revealAnswerInfo(item){
@@ -701,7 +711,7 @@ function renderResult(){
       </div>
       <button class="speak-btn" style="width:44px;height:44px;font-size:18px;">🔊</button>
     `;
-    row.querySelector('button').addEventListener('click', ()=> speakJa(`${a.item.c}！`));
+    row.querySelector('button').addEventListener('click', ()=> speakChar(a.item.c));
     reviewList.appendChild(row);
   });
 
