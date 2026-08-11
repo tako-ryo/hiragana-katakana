@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>ひみつのことば | もじクイズ</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --mint:#CFF3E1; --mint-d:#3FAE83;
+    --lav:#E3DAF7; --lav-d:#8A6FE0;
+    --lemon:#FFF6C2; --lemon-d:#E0B400;
+    --sakura:#FFDCE9; --sakura-d:#FF6F91;
+    --sky:#D6EEFB; --sky-d:#3FA3E0;
+    --ink:#4A3B4E;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0; padding:0; min-height:100%;
+    font-family:'Zen Maru Gothic', sans-serif;
+    color:var(--ink);
+    background:linear-gradient(135deg,#FFE9F2 0%, #E3F2FF 35%, #FFF9DA 70%, #E6FFF1 100%);
+    background-attachment:fixed;
+  }
+  .screen{ min-height:100vh; width:100%; display:flex; align-items:center; justify-content:center; padding:16px; }
+  .panel{
+    width:100%; max-width:920px;
+    background:rgba(255,255,255,0.9);
+    border-radius:40px;
+    box-shadow:0 20px 50px rgba(120,90,120,0.18);
+    padding:34px 28px;
+    position:relative;
+    overflow:hidden;
+  }
+  .btn-round{
+    border-radius:28px; border:none; cursor:pointer;
+    font-family:inherit; font-weight:700;
+    transition:transform .08s ease, box-shadow .08s ease;
+  }
+  .btn-round:active{ transform:translateY(4px); }
+  .mode-card{
+    border-radius:32px; padding:22px 16px; text-align:center;
+    box-shadow:0 8px 0 rgba(0,0,0,0.08);
+    cursor:pointer; border:none; font-family:inherit;
+    transition:transform .1s ease;
+    display:flex; flex-direction:column; gap:6px; align-items:center;
+  }
+  .mode-card:hover{ transform:translateY(-4px); }
+  .mode-card:active{ transform:translateY(2px); box-shadow:0 3px 0 rgba(0,0,0,0.08); }
+  .word-chip{
+    background:#fff; border-radius:20px; padding:10px 14px;
+    box-shadow:0 4px 0 rgba(0,0,0,0.06);
+    min-width:96px; text-align:center;
+  }
+  .choice-btn{
+    background:#fff; border-radius:24px; padding:16px 10px;
+    font-weight:900; box-shadow:0 6px 0 #ddd;
+    border:3px solid transparent;
+  }
+  .choice-btn .romaji-text{ font-size:28px; line-height:1.2; }
+  .choice-btn .choice-kana{
+    font-size:16px; font-weight:700; opacity:0.65; margin-top:4px; line-height:1.2;
+  }
+  .choice-btn.correct{ background:#DFF7E8; border-color:var(--mint-d); color:var(--mint-d); }
+  .choice-btn.wrong{ background:#FFE1E1; border-color:#E05D5D; color:#E05D5D; }
+  .fx-overlay{
+    position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+    pointer-events:none; z-index:50;
+  }
+  .fx-mark{
+    font-size:220px; font-weight:900; opacity:0;
+  }
+  .fx-mark.show{ animation:pop .9s ease forwards; }
+  @keyframes pop{
+    0%{ opacity:0; transform:scale(0.3) rotate(-8deg); }
+    30%{ opacity:1; transform:scale(1.15) rotate(4deg); }
+    50%{ opacity:1; transform:scale(1) rotate(0); }
+    80%{ opacity:1; }
+    100%{ opacity:0; transform:scale(1); }
+  }
+  .confetti{ position:fixed; top:-20px; z-index:40; border-radius:3px; pointer-events:none; }
+  .speak-btn{
+    width:56px; height:56px; border-radius:50%; border:none; cursor:pointer;
+    background:var(--sky-d); color:#fff; font-size:24px;
+    box-shadow:0 5px 0 #2C82B5; display:flex; align-items:center; justify-content:center;
+  }
+  .speak-btn:active{ transform:translateY(4px); box-shadow:0 1px 0 #2C82B5; }
+  .progress-bar{ height:10px; border-radius:8px; background:#eee; overflow:hidden; }
+  .progress-fill{ height:100%; background:var(--sakura-d); transition:width .3s ease; }
+  .gate-input{
+    font-family:inherit; font-size:22px; text-align:center; letter-spacing:2px;
+    border:3px solid var(--lav); border-radius:24px; padding:14px 18px; width:100%;
+  }
+  .gate-input:focus{ outline:none; border-color:var(--sakura-d); }
+  .review-item{
+    background:#fff; border-radius:20px; padding:12px; display:flex; align-items:center; gap:10px;
+    box-shadow:0 4px 0 rgba(0,0,0,0.06);
+  }
+  .hidden{ display:none !important; }
+</style>
+</head>
+<body>
+
+<!-- ===================== GATE SCREEN ===================== -->
+<div id="gateScreen" class="screen">
+  <div class="panel text-center" style="max-width:520px; background:linear-gradient(160deg,var(--sakura),var(--lav));">
+    <div style="font-size:70px;">🔑🌸</div>
+    <h1 class="text-3xl font-black mt-2 mb-2">ひみつのことば</h1>
+    <p class="mb-6 text-lg">ひみつのことばを入力すると、ゲームがスタートするよ！<br><span class="text-sm text-gray-500">(Please enter the secret keyword to unlock!)</span></p>
+    <input id="gateInput" class="gate-input" type="text" placeholder="ひみつのことば" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <p id="gateError" class="text-red-500 font-bold mt-3 hidden">ちがいます。もういちど にゅうりょくしてね。</p>
+    <button id="gateBtn" class="btn-round mt-5 px-10 py-4 text-xl" style="background:var(--sakura-d); color:#fff; box-shadow:0 6px 0 #D94E71;">ひらく ▶</button>
+  </div>
+</div>
+
+<!-- ===================== HOME SCREEN ===================== -->
+<div id="homeScreen" class="screen hidden">
+  <div class="panel">
+    <div class="text-center mb-6">
+      <div style="font-size:56px;">🎌✨</div>
+      <h1 class="text-3xl font-black">もじクイズ</h1>
+      <p class="text-gray-500 mt-1">やりたい モードを えらんでね (Choose a mode)</p>
+    </div>
+    <div id="modeGrid" class="grid grid-cols-2 md:grid-cols-3 gap-4"></div>
+  </div>
+</div>
+
+<!-- ===================== QUIZ SCREEN ===================== -->
+<div id="quizScreen" class="screen hidden">
+  <div class="panel">
+    <div class="flex items-center justify-between mb-4">
+      <span id="quizModeLabel" class="text-sm font-bold text-gray-500"></span>
+      <span id="quizCount" class="text-sm font-bold text-gray-500">1 / 10</span>
+    </div>
+    <div class="progress-bar mb-6"><div id="progressFill" class="progress-fill" style="width:10%;"></div></div>
+
+    <div class="flex flex-col items-center">
+      <div class="flex items-center justify-center gap-6 mb-2">
+        <div id="quizChar" class="font-black" style="font-size:120px; color:var(--sakura-d); line-height:1;"></div>
+      </div>
+      <button id="quizSpeakBtn" class="speak-btn mb-6">🔊</button>
+
+      <p class="mb-3 font-bold text-gray-500">「よみかた」は どれ？ (Which is the reading?)</p>
+      <div id="choiceGrid" class="grid grid-cols-2 gap-4 w-full max-w-md mb-6"></div>
+
+      <div id="revealArea" class="flex flex-col items-center hidden w-full">
+        <div class="border-t w-full max-w-md mb-5" style="border-color:#eee;"></div>
+        <div id="quizEmoji" class="mb-3" style="font-size:70px;"></div>
+        <div id="wordRow" class="flex flex-wrap justify-center gap-3 mb-4"></div>
+        <div id="quizNote" class="text-sm text-gray-500 mb-4 text-center max-w-md hidden"></div>
+        <button id="nextBtn" class="btn-round px-10 py-3 text-lg" style="background:var(--sakura-d); color:#fff; box-shadow:0 6px 0 #D94E71;">つぎへ ▶</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== RESULT SCREEN ===================== -->
+<div id="resultScreen" class="screen hidden">
+  <div class="panel text-center">
+    <div id="resultEmoji" style="font-size:80px;"></div>
+    <h1 id="resultTitle" class="text-3xl font-black mt-2 mb-1"></h1>
+    <p id="resultScore" class="text-xl font-bold mb-6"></p>
+
+    <h2 id="reviewHeading" class="font-black text-lg mb-3 text-left" style="color:var(--sakura-d);">📋 ふりかえり (Review)</h2>
+
+    <div id="reviewList" class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6 text-left"></div>
+
+    <div class="flex flex-wrap gap-4 justify-center">
+      <button id="retryWrongBtn" class="btn-round px-8 py-3 text-lg hidden" style="background:var(--lav-d); color:#fff; box-shadow:0 6px 0 #6E52C4;">まちがえた もんだいだけ！ 🔄</button>
+      <button id="sameModeBtn" class="btn-round px-8 py-3 text-lg" style="background:var(--mint-d); color:#fff; box-shadow:0 6px 0 #2C8A63;">もういちど 🔁</button>
+      <button id="homeBtn" class="btn-round px-8 py-3 text-lg" style="background:#fff; color:var(--ink); box-shadow:0 6px 0 #ddd;">ホームへ 🏠</button>
+    </div>
+  </div>
+</div>
+
+<div class="fx-overlay"><div id="fxMark" class="fx-mark"></div></div>
+
+<script>
+/* =========================================================================
+   DATA
+   L1 = seion (清音) only.  L2 = dakuten/handakuten (濁音・半濁音) + youon (拗音)
+   note = shown when the sound rarely/never starts a real word.
+   words = up to 3 example words {w, r(romaji), en(english)}
+========================================================================= */
+
+const HIRA_L1 = [
+ {c:'あ',r:'a',e:'🐜',words:[{w:'あり',r:'ari',en:'ant'},{w:'あめ',r:'ame',en:'candy'},{w:'あたま',r:'atama',en:'head'}]},
+ {c:'い',r:'i',e:'🐶',words:[{w:'いぬ',r:'inu',en:'dog'},{w:'いえ',r:'ie',en:'house'},{w:'いす',r:'isu',en:'chair'}]},
+ {c:'う',r:'u',e:'🐴',words:[{w:'うま',r:'uma',en:'horse'},{w:'うみ',r:'umi',en:'sea'},{w:'うで',r:'ude',en:'arm'}]},
+ {c:'え',r:'e',e:'✏️',words:[{w:'えんぴつ',r:'enpitsu',en:'pencil'},{w:'えき',r:'eki',en:'station'},{w:'えほん',r:'ehon',en:'picture book'}]},
+ {c:'お',r:'o',e:'🍵',words:[{w:'おちゃ',r:'ocha',en:'tea'},{w:'おかね',r:'okane',en:'money'},{w:'おかし',r:'okashi',en:'snack'}]},
+ {c:'か',r:'ka',e:'☂️',words:[{w:'かさ',r:'kasa',en:'umbrella'},{w:'かみ',r:'kami',en:'hair'},{w:'かお',r:'kao',en:'face'}]},
+ {c:'き',r:'ki',e:'🦒',words:[{w:'きりん',r:'kirin',en:'giraffe'},{w:'きって',r:'kitte',en:'stamp'},{w:'きいろ',r:'kiiro',en:'yellow'}]},
+ {c:'く',r:'ku',e:'👟',words:[{w:'くつ',r:'kutsu',en:'shoes'},{w:'くも',r:'kumo',en:'cloud'},{w:'くるま',r:'kuruma',en:'car'}]},
+ {c:'け',r:'ke',e:'💨',words:[{w:'けむり',r:'kemuri',en:'smoke'},{w:'けいと',r:'keeto',en:'yarn'},{w:'けしごむ',r:'keshigomu',en:'eraser'}]},
+ {c:'こ',r:'ko',e:'🧊',words:[{w:'こおり',r:'koori',en:'ice'},{w:'こども',r:'kodomo',en:'child'},{w:'こえ',r:'koe',en:'voice'}]},
+ {c:'さ',r:'sa',e:'🐟',words:[{w:'さかな',r:'sakana',en:'fish'},{w:'さくら',r:'sakura',en:'cherry blossom'},{w:'さいふ',r:'saifu',en:'wallet'}]},
+ {c:'し',r:'shi',e:'🦓',words:[{w:'しまうま',r:'shimauma',en:'zebra'},{w:'しお',r:'shio',en:'salt'},{w:'しろ',r:'shiro',en:'white'}]},
+ {c:'す',r:'su',e:'🍉',words:[{w:'すいか',r:'suika',en:'watermelon'},{w:'すし',r:'sushi',en:'sushi'},{w:'すな',r:'suna',en:'sand'}]},
+ {c:'せ',r:'se',e:'🦗',words:[{w:'せみ',r:'semi',en:'cicada'},{w:'せかい',r:'sekai',en:'world'},{w:'せんせい',r:'sensee',en:'teacher'}]},
+ {c:'そ',r:'so',e:'☁️',words:[{w:'そら',r:'sora',en:'sky'},{w:'そば',r:'soba',en:'noodles'},{w:'そと',r:'soto',en:'outside'}]},
+ {c:'た',r:'ta',e:'🥚',words:[{w:'たまご',r:'tamago',en:'egg'},{w:'たいよう',r:'taiyoo',en:'sun'},{w:'たこ',r:'tako',en:'octopus'}]},
+ {c:'ち',r:'chi',e:'🗺️',words:[{w:'ちず',r:'chizu',en:'map'},{w:'ちいさい',r:'chiisai',en:'small'},{w:'ちから',r:'chikara',en:'power'}]},
+ {c:'つ',r:'tsu',e:'🌙',words:[{w:'つき',r:'tsuki',en:'moon'},{w:'つくえ',r:'tsukue',en:'desk'},{w:'つめ',r:'tsume',en:'nail'}]},
+ {c:'て',r:'te',e:'✉️',words:[{w:'てがみ',r:'tegami',en:'letter'},{w:'てぶくろ',r:'tebukuro',en:'gloves'},{w:'てんき',r:'tenki',en:'weather'}]},
+ {c:'と',r:'to',e:'⌚',words:[{w:'とけい',r:'tokee',en:'clock'},{w:'とり',r:'tori',en:'bird'},{w:'ともだち',r:'tomodachi',en:'friend'}]},
+ {c:'な',r:'na',e:'🍆',words:[{w:'なす',r:'nasu',en:'eggplant'},{w:'なつ',r:'natsu',en:'summer'},{w:'なみだ',r:'namida',en:'tears'}]},
+ {c:'に',r:'ni',e:'🌈',words:[{w:'にじ',r:'niji',en:'rainbow'},{w:'にわとり',r:'niwatori',en:'chicken'},{w:'にく',r:'niku',en:'meat'}]},
+ {c:'ぬ',r:'nu',e:'🧸',words:[{w:'ぬいぐるみ',r:'nuigurumi',en:'stuffed toy'},{w:'ぬの',r:'nuno',en:'cloth'},{w:'ぬま',r:'numa',en:'swamp'}]},
+ {c:'ね',r:'ne',e:'🐱',words:[{w:'ねこ',r:'neko',en:'cat'},{w:'ねつ',r:'netsu',en:'fever'},{w:'ねぎ',r:'negi',en:'green onion'}]},
+ {c:'の',r:'no',e:'🌾',words:[{w:'のはら',r:'nohara',en:'field'},{w:'のり',r:'nori',en:'seaweed'},{w:'のみもの',r:'nomimono',en:'drink'}]},
+ {c:'は',r:'ha',e:'🌸',words:[{w:'はな',r:'hana',en:'flower'},{w:'はし',r:'hashi',en:'bridge'},{w:'はれ',r:'hare',en:'sunny'}]},
+ {c:'ひ',r:'hi',e:'✈️',words:[{w:'ひこうき',r:'hikooki',en:'airplane'},{w:'ひと',r:'hito',en:'person'},{w:'ひざ',r:'hiza',en:'knee'}]},
+ {c:'ふ',r:'fu',e:'🎈',words:[{w:'ふうせん',r:'fuusen',en:'balloon'},{w:'ふゆ',r:'fuyu',en:'winter'},{w:'ふね',r:'fune',en:'ship'}]},
+ {c:'へ',r:'he',e:'🐍',words:[{w:'へび',r:'hebi',en:'snake'},{w:'へや',r:'heya',en:'room'},{w:'へそ',r:'heso',en:'belly button'}]},
+ {c:'ほ',r:'ho',e:'⭐',words:[{w:'ほし',r:'hoshi',en:'star'},{w:'ほん',r:'hon',en:'book'},{w:'ほほ',r:'hoho',en:'cheek'}]},
+ {c:'ま',r:'ma',e:'🪟',words:[{w:'まど',r:'mado',en:'window'},{w:'まめ',r:'mame',en:'bean'},{w:'まち',r:'machi',en:'town'}]},
+ {c:'み',r:'mi',e:'🍊',words:[{w:'みかん',r:'mikan',en:'mandarin orange'},{w:'みず',r:'mizu',en:'water'},{w:'みみ',r:'mimi',en:'ear'}]},
+ {c:'む',r:'mu',e:'🐛',words:[{w:'むし',r:'mushi',en:'bug'},{w:'むね',r:'mune',en:'chest'},{w:'むらさき',r:'murasaki',en:'purple'}]},
+ {c:'め',r:'me',e:'👓',words:[{w:'めがね',r:'megane',en:'glasses'},{w:'めいろ',r:'meero',en:'maze'},{w:'めだま',r:'medama',en:'eyeball'}]},
+ {c:'も',r:'mo',e:'🍑',words:[{w:'もも',r:'momo',en:'peach'},{w:'もり',r:'mori',en:'forest'},{w:'もち',r:'mochi',en:'rice cake'}]},
+ {c:'や',r:'ya',e:'⛰️',words:[{w:'やま',r:'yama',en:'mountain'},{w:'やさい',r:'yasai',en:'vegetable'},{w:'やね',r:'yane',en:'roof'}]},
+ {c:'ゆ',r:'yu',e:'⛄',words:[{w:'ゆき',r:'yuki',en:'snow'},{w:'ゆび',r:'yubi',en:'finger'},{w:'ゆめ',r:'yume',en:'dream'}]},
+ {c:'よ',r:'yo',e:'🌃',words:[{w:'よる',r:'yoru',en:'night'},{w:'よこ',r:'yoko',en:'side'},{w:'ようふく',r:'yoofuku',en:'clothes'}]},
+ {c:'ら',r:'ra',e:'🦁',words:[{w:'らいおん',r:'raion',en:'lion'},{w:'らくだ',r:'rakuda',en:'camel'},{w:'らじお',r:'rajio',en:'radio'}]},
+ {c:'り',r:'ri',e:'🍎',words:[{w:'りんご',r:'ringo',en:'apple'},{w:'りゆう',r:'riyuu',en:'reason'},{w:'りす',r:'risu',en:'squirrel'}]},
+ {c:'る',r:'ru',e:'🔍',words:[{w:'るす',r:'rusu',en:'being away from home'},{w:'るーぺ',r:'ruupe',en:'magnifying glass'}]},
+ {c:'れ',r:'re',e:'🍋',words:[{w:'れもん',r:'remon',en:'lemon'},{w:'れきし',r:'rekishi',en:'history'},{w:'れいぞうこ',r:'reezooko',en:'refrigerator'}]},
+ {c:'ろ',r:'ro',e:'🕯️',words:[{w:'ろうそく',r:'roosoku',en:'candle'},{w:'ろば',r:'roba',en:'donkey'},{w:'ろじ',r:'roji',en:'alley'}]},
+ {c:'わ',r:'wa',e:'🐊',words:[{w:'わに',r:'wani',en:'crocodile'},{w:'わたし',r:'watashi',en:'I / me'},{w:'わた',r:'wata',en:'cotton'}]},
+ {c:'を',r:'wo',e:'📖',words:[{w:'ほんを',r:'hon o',en:'(object marker) book'}],note:'「を」は ことばの さいごに つかいません。ぶんの なかで つかいます。(Only used inside a sentence, not to start a word.)'},
+ {c:'ん',r:'n',e:'🍞',words:[{w:'ぱん',r:'pan',en:'bread'},{w:'みかん',r:'mikan',en:'orange'}],note:'「ん」は ことばの さいごに きます。(Only comes at the end of a word.)'}
+];
+
+const KATA_L1 = [
+ {c:'ア',r:'a',e:'🍦',words:[{w:'アイス',r:'aisu',en:'ice cream'},{w:'アニメ',r:'anime',en:'anime'},{w:'アイロン',r:'airon',en:'iron'}]},
+ {c:'イ',r:'i',e:'🐬',words:[{w:'イルカ',r:'iruka',en:'dolphin'},{w:'インク',r:'inku',en:'ink'},{w:'イヤホン',r:'iyahon',en:'earphones'}]},
+ {c:'ウ',r:'u',e:'🧶',words:[{w:'ウール',r:'uuru',en:'wool'},{w:'ウエスト',r:'uesuto',en:'waist'}]},
+ {c:'エ',r:'e',e:'🦐',words:[{w:'エビ',r:'ebi',en:'shrimp'},{w:'エプロン',r:'epuron',en:'apron'},{w:'エレベーター',r:'erebeetaa',en:'elevator'}]},
+ {c:'オ',r:'o',e:'🍊',words:[{w:'オレンジ',r:'orenji',en:'orange'},{w:'オムレツ',r:'omuretsu',en:'omelette'},{w:'オルガン',r:'orugan',en:'organ'}]},
+ {c:'カ',r:'ka',e:'📷',words:[{w:'カメラ',r:'kamera',en:'camera'},{w:'カレー',r:'karee',en:'curry'},{w:'カード',r:'kaado',en:'card'}]},
+ {c:'キ',r:'ki',e:'🍄',words:[{w:'キノコ',r:'kinoko',en:'mushroom'},{w:'キウイ',r:'kiui',en:'kiwi'}]},
+ {c:'ク',r:'ku',e:'🐻',words:[{w:'クマ',r:'kuma',en:'bear'},{w:'クレヨン',r:'kureyon',en:'crayon'},{w:'クラス',r:'kurasu',en:'class'}]},
+ {c:'ケ',r:'ke',e:'📦',words:[{w:'ケース',r:'keesu',en:'case'},{w:'ケーキ',r:'keeki',en:'cake'}]},
+ {c:'コ',r:'ko',e:'🐨',words:[{w:'コアラ',r:'koara',en:'koala'},{w:'コーヒー',r:'koohii',en:'coffee'},{w:'コスモス',r:'kosumosu',en:'cosmos flower'}]},
+ {c:'サ',r:'sa',e:'🥗',words:[{w:'サラダ',r:'sarada',en:'salad'},{w:'サイズ',r:'saizu',en:'size'},{w:'サンダル',r:'sandaru',en:'sandal'}]},
+ {c:'シ',r:'shi',e:'🦓',words:[{w:'シマウマ',r:'shimauma',en:'zebra'},{w:'シーソー',r:'shiisoo',en:'seesaw'},{w:'シール',r:'shiiru',en:'sticker'}]},
+ {c:'ス',r:'su',e:'🍉',words:[{w:'スイカ',r:'suika',en:'watermelon'},{w:'スープ',r:'suupu',en:'soup'},{w:'スカート',r:'sukaato',en:'skirt'}]},
+ {c:'セ',r:'se',e:'🧥',words:[{w:'セーター',r:'seetaa',en:'sweater'},{w:'セロリ',r:'serori',en:'celery'}]},
+ {c:'ソ',r:'so',e:'🛋️',words:[{w:'ソファ',r:'sofa',en:'sofa'},{w:'ソース',r:'soosu',en:'sauce'}]},
+ {c:'タ',r:'ta',e:'🧴',words:[{w:'タオル',r:'taoru',en:'towel'},{w:'タイヤ',r:'taiya',en:'tire'},{w:'タコ',r:'tako',en:'octopus'}]},
+ {c:'チ',r:'chi',e:'🧀',words:[{w:'チーズ',r:'chiizu',en:'cheese'},{w:'チーム',r:'chiimu',en:'team'}]},
+ {c:'ツ',r:'tsu',e:'🧳',words:[{w:'ツアー',r:'tsuaa',en:'tour'},{w:'ツナ',r:'tsuna',en:'tuna'},{w:'ツリー',r:'tsurii',en:'tree'}]},
+ {c:'テ',r:'te',e:'🪑',words:[{w:'テーブル',r:'teeburu',en:'table'},{w:'テスト',r:'tesuto',en:'test'},{w:'テニス',r:'tenisu',en:'tennis'}]},
+ {c:'ト',r:'to',e:'🍅',words:[{w:'トマト',r:'tomato',en:'tomato'},{w:'トラ',r:'tora',en:'tiger'},{w:'トイレ',r:'toire',en:'toilet'}]},
+ {c:'ナ',r:'na',e:'🔪',words:[{w:'ナイフ',r:'naifu',en:'knife'},{w:'ナンバー',r:'nanbaa',en:'number'}]},
+ {c:'ニ',r:'ni',e:'🥕',words:[{w:'ニンジン',r:'ninjin',en:'carrot'},{w:'ニス',r:'nisu',en:'varnish'}]},
+ {c:'ヌ',r:'nu',e:'🍜',words:[{w:'ヌードル',r:'nuudoru',en:'noodle'},{w:'ヌガー',r:'nugaa',en:'nougat'}]},
+ {c:'ネ',r:'ne',e:'🐱',words:[{w:'ネコ',r:'neko',en:'cat'},{w:'ネクタイ',r:'nekutai',en:'necktie'},{w:'ネオン',r:'neon',en:'neon'}]},
+ {c:'ノ',r:'no',e:'📓',words:[{w:'ノート',r:'nooto',en:'notebook'},{w:'ノミ',r:'nomi',en:'flea'}]},
+ {c:'ハ',r:'ha',e:'🐦',words:[{w:'ハト',r:'hato',en:'pigeon'},{w:'ハサミ',r:'hasami',en:'scissors'},{w:'ハンカチ',r:'hankachi',en:'handkerchief'}]},
+ {c:'ヒ',r:'hi',e:'🐤',words:[{w:'ヒヨコ',r:'hiyoko',en:'chick'},{w:'ヒーロー',r:'hiiroo',en:'hero'},{w:'ヒント',r:'hinto',en:'hint'}]},
+ {c:'フ',r:'fu',e:'🍇',words:[{w:'フルーツ',r:'furuutsu',en:'fruit'},{w:'フライパン',r:'furaipan',en:'frying pan'},{w:'フラミンゴ',r:'furamingo',en:'flamingo'}]},
+ {c:'ヘ',r:'he',e:'🐍',words:[{w:'ヘビ',r:'hebi',en:'snake'},{w:'ヘリコプター',r:'herikoputaa',en:'helicopter'},{w:'ヘアピン',r:'heapin',en:'hairpin'}]},
+ {c:'ホ',r:'ho',e:'🏨',words:[{w:'ホテル',r:'hoteru',en:'hotel'},{w:'ホース',r:'hoosu',en:'hose'}]},
+ {c:'マ',r:'ma',e:'😷',words:[{w:'マスク',r:'masuku',en:'mask'},{w:'マラソン',r:'marason',en:'marathon'},{w:'マグロ',r:'maguro',en:'tuna'}]},
+ {c:'ミ',r:'mi',e:'🥛',words:[{w:'ミルク',r:'miruku',en:'milk'},{w:'ミカン',r:'mikan',en:'orange'},{w:'ミトン',r:'miton',en:'mitten'}]},
+ {c:'ム',r:'mu',e:'🍮',words:[{w:'ムース',r:'muusu',en:'mousse'},{w:'ムード',r:'muudo',en:'mood'}]},
+ {c:'メ',r:'me',e:'🍈',words:[{w:'メロン',r:'meron',en:'melon'},{w:'メガネ',r:'megane',en:'glasses'},{w:'メダル',r:'medaru',en:'medal'}]},
+ {c:'モ',r:'mo',e:'🍑',words:[{w:'モモ',r:'momo',en:'peach'},{w:'モデル',r:'moderu',en:'model'},{w:'モーター',r:'mootaa',en:'motor'}]},
+ {c:'ヤ',r:'ya',e:'🐐',words:[{w:'ヤギ',r:'yagi',en:'goat'},{w:'ヤシ',r:'yashi',en:'palm tree'}]},
+ {c:'ユ',r:'yu',e:'🦄',words:[{w:'ユニコーン',r:'yunikoon',en:'unicorn'},{w:'ユーモア',r:'yuumoa',en:'humor'}]},
+ {c:'ヨ',r:'yo',e:'🥣',words:[{w:'ヨーグルト',r:'yooguruto',en:'yogurt'},{w:'ヨガ',r:'yoga',en:'yoga'}]},
+ {c:'ラ',r:'ra',e:'🦁',words:[{w:'ライオン',r:'raion',en:'lion'},{w:'ラジオ',r:'rajio',en:'radio'},{w:'ラーメン',r:'raamen',en:'ramen'}]},
+ {c:'リ',r:'ri',e:'🍎',words:[{w:'リンゴ',r:'ringo',en:'apple'},{w:'リボン',r:'ribon',en:'ribbon'},{w:'リス',r:'risu',en:'squirrel'}]},
+ {c:'ル',r:'ru',e:'💎',words:[{w:'ルビー',r:'rubii',en:'ruby'},{w:'ルーム',r:'ruumu',en:'room'}]},
+ {c:'レ',r:'re',e:'🍋',words:[{w:'レモン',r:'remon',en:'lemon'},{w:'レストラン',r:'resutoran',en:'restaurant'},{w:'レール',r:'reeru',en:'rail'}]},
+ {c:'ロ',r:'ro',e:'🪢',words:[{w:'ロープ',r:'roopu',en:'rope'},{w:'ロバ',r:'roba',en:'donkey'},{w:'ロビー',r:'robii',en:'lobby'}]},
+ {c:'ワ',r:'wa',e:'🐊',words:[{w:'ワニ',r:'wani',en:'crocodile'},{w:'ワイン',r:'wain',en:'wine'},{w:'ワゴン',r:'wagon',en:'wagon'}]},
+ {c:'ヲ',r:'wo',e:'🔤',words:[],note:'カタカナの「ヲ」は げんだいでは ほとんど つかいません。(Almost never used in modern Japanese.)'},
+ {c:'ン',r:'n',e:'🍞',words:[{w:'パン',r:'pan',en:'bread'},{w:'ライオン',r:'raion',en:'lion'}],note:'「ン」は ことばの さいごに きます。(Only comes at the end of a word.)'}
+];
+
+const HIRA_L2 = [
+ {c:'が',r:'ga',e:'🌍',words:[{w:'がいこく',r:'gaikoku',en:'foreign country'}]},
+ {c:'ぎ',r:'gi',e:'🏦',words:[{w:'ぎんこう',r:'ginkoo',en:'bank'}]},
+ {c:'ぐ',r:'gu',e:'🍭',words:[{w:'ぐみ',r:'gumi',en:'gummy candy'}]},
+ {c:'げ',r:'ge',e:'🚪',words:[{w:'げんかん',r:'genkan',en:'entryway'}]},
+ {c:'ご',r:'go',e:'🍚',words:[{w:'ごはん',r:'gohan',en:'rice / meal'}]},
+ {c:'ざ',r:'za',e:'🧺',words:[{w:'ざる',r:'zaru',en:'bamboo strainer'}]},
+ {c:'じ',r:'ji',e:'⏰',words:[{w:'じかん',r:'jikan',en:'time'}]},
+ {c:'ず',r:'zu',e:'📕',words:[{w:'ずかん',r:'zukan',en:'picture encyclopedia'}]},
+ {c:'ぜ',r:'ze',e:'💯',words:[{w:'ぜんぶ',r:'zenbu',en:'all / everything'}]},
+ {c:'ぞ',r:'zo',e:'🐘',words:[{w:'ぞう',r:'zoo',en:'elephant'}]},
+ {c:'だ',r:'da',e:'🥕',words:[{w:'だいこん',r:'daikon',en:'radish'}]},
+ {c:'ぢ',r:'ji',e:'🩸',words:[{w:'はなぢ',r:'hana-ji',en:'nosebleed'}],note:'「ぢ」は ことばの さいしょには あまり つかいません。(Rarely starts a word.)'},
+ {c:'づ',r:'zu',e:'🔁',words:[{w:'つづく',r:'tsu-zuku',en:'to continue'}],note:'「づ」は ことばの さいしょには あまり つかいません。(Rarely starts a word.)'},
+ {c:'で',r:'de',e:'🚃',words:[{w:'でんしゃ',r:'densha',en:'train'}]},
+ {c:'ど',r:'do',e:'🐾',words:[{w:'どうぶつ',r:'doobutsu',en:'animal'}]},
+ {c:'ば',r:'ba',e:'📍',words:[{w:'ばしょ',r:'basho',en:'place'}]},
+ {c:'び',r:'bi',e:'🍈',words:[{w:'びわ',r:'biwa',en:'loquat fruit'}]},
+ {c:'ぶ',r:'bu',e:'🐷',words:[{w:'ぶた',r:'buta',en:'pig'}]},
+ {c:'べ',r:'be',e:'🍱',words:[{w:'べんとう',r:'bentoo',en:'lunchbox'}]},
+ {c:'ぼ',r:'bo',e:'👒',words:[{w:'ぼうし',r:'booshi',en:'hat'}]},
+ {c:'ぱ',r:'pa',e:'🍞',words:[{w:'ぱん',r:'pan',en:'bread'}]},
+ {c:'ぴ',r:'pi',e:'✨',words:[{w:'ぴかぴか',r:'pikapika',en:'shiny / sparkly'}]},
+ {c:'ぷ',r:'pu',e:'🍮',words:[{w:'ぷりん',r:'purin',en:'pudding'}]},
+ {c:'ぺ',r:'pe',e:'🐧',words:[{w:'ぺんぎん',r:'pengin',en:'penguin'}]},
+ {c:'ぽ',r:'po',e:'📮',words:[{w:'ぽすと',r:'posuto',en:'mailbox'}]},
+ {c:'きゃ',r:'kya',e:'🥬',words:[{w:'きゃべつ',r:'kyabetsu',en:'cabbage'}]},
+ {c:'きゅ',r:'kyu',e:'🥒',words:[{w:'きゅうり',r:'kyuuri',en:'cucumber'}]},
+ {c:'きょ',r:'kyo',e:'🏫',words:[{w:'きょうしつ',r:'kyooshitsu',en:'classroom'}]},
+ {c:'しゃ',r:'sha',e:'📷',words:[{w:'しゃしん',r:'shashin',en:'photo'}]},
+ {c:'しゅ',r:'shu',e:'📚',words:[{w:'しゅくだい',r:'shukudai',en:'homework'}]},
+ {c:'しょ',r:'sho',e:'🏫',words:[{w:'しょうがっこう',r:'shoogakkoo',en:'elementary school'}]},
+ {c:'ちゃ',r:'cha',e:'🟤',words:[{w:'ちゃいろ',r:'chairo',en:'brown'}]},
+ {c:'ちゅ',r:'chu',e:'🅿️',words:[{w:'ちゅうしゃ',r:'chuusha',en:'parking'}]},
+ {c:'ちょ',r:'cho',e:'🦋',words:[{w:'ちょう',r:'choo',en:'butterfly'}]},
+ {c:'にゃ',r:'nya',e:'🐱',words:[{w:'にゃんこ',r:'nyanko',en:'kitty'}]},
+ {c:'にゅ',r:'nyu',e:'🎓',words:[{w:'にゅうがく',r:'nyuugaku',en:'school enrollment'}]},
+ {c:'にょ',r:'nyo',e:'🐍',words:[{w:'にょろにょろ',r:'nyoronyoro',en:'slithering (sound word)'}]},
+ {c:'ひゃ',r:'hya',e:'💯',words:[{w:'ひゃく',r:'hyaku',en:'hundred'}]},
+ {c:'ひゅ',r:'hyu',e:'🌬️',words:[{w:'ひゅーひゅー',r:'hyuuhyuu',en:'whistling wind (sound word)'}]},
+ {c:'ひょ',r:'hyo',e:'🐆',words:[{w:'ひょう',r:'hyoo',en:'leopard / hail'}]},
+ {c:'みゃ',r:'mya',e:'💓',words:[{w:'みゃく',r:'myaku',en:'pulse'}]},
+ {c:'みゅ',r:'myu',e:'🏛️',words:[{w:'みゅーじあむ',r:'myuujiamu',en:'museum'}],note:'「みゅ」は がいらいご（外来語）に おおいです。(Mostly appears in loanwords.)'},
+ {c:'みょ',r:'myo',e:'🔤',words:[],note:'「みょ」は ことばの さいしょには あまり つかいません。(Rarely starts a word.)'},
+ {c:'りゃ',r:'rya',e:'✂️',words:[{w:'りゃくご',r:'ryakugo',en:'abbreviation'}]},
+ {c:'りゅ',r:'ryu',e:'🐉',words:[{w:'りゅう',r:'ryuu',en:'dragon'}]},
+ {c:'りょ',r:'ryo',e:'✈️',words:[{w:'りょこう',r:'ryokoo',en:'travel'}]},
+ {c:'ぎゃ',r:'gya',e:'🔄',words:[{w:'ぎゃく',r:'gyaku',en:'opposite'}]},
+ {c:'ぎゅ',r:'gyu',e:'🥛',words:[{w:'ぎゅうにゅう',r:'gyuunyuu',en:'milk'}]},
+ {c:'ぎょ',r:'gyo',e:'🥟',words:[{w:'ぎょうざ',r:'gyooza',en:'dumpling'}]},
+ {c:'じゃ',r:'ja',e:'🥔',words:[{w:'じゃがいも',r:'jagaimo',en:'potato'}]},
+ {c:'じゅ',r:'ju',e:'🧃',words:[{w:'じゅーす',r:'juusu',en:'juice'}]},
+ {c:'じょ',r:'jo',e:'📏',words:[{w:'じょうぎ',r:'joogi',en:'ruler'}]},
+ {c:'びゃ',r:'bya',e:'3️⃣',words:[{w:'さんびゃく',r:'san-byaku',en:'three hundred'}],note:'「びゃ」は ことばの さいしょには あまり つかいません。(Rarely starts a word.)'},
+ {c:'びゅ',r:'byu',e:'🎤',words:[{w:'インタビュー',r:'intabyuu',en:'interview'}],note:'「びゅ」は がいらいごに おおいです。(Mostly appears in loanwords.)'},
+ {c:'びょ',r:'byo',e:'🏥',words:[{w:'びょういん',r:'byooin',en:'hospital'}]},
+ {c:'ぴゃ',r:'pya',e:'6️⃣',words:[{w:'ろっぴゃく',r:'rop-pyaku',en:'six hundred'}],note:'「ぴゃ」は ことばの さいしょには あまり つかいません。(Rarely starts a word.)'},
+ {c:'ぴゅ',r:'pyu',e:'💻',words:[{w:'コンピューター',r:'konpyuutaa',en:'computer'}],note:'「ぴゅ」は がいらいごに おおいです。(Mostly appears in loanwords.)'},
+ {c:'ぴょ',r:'pyo',e:'🐰',words:[{w:'ぴょんぴょん',r:'pyonpyon',en:'hopping (sound word)'}]}
+];
+
+const KATA_L2 = [
+ {c:'ガ',r:'ga',e:'🍬',words:[{w:'ガム',r:'gamu',en:'gum'}]},
+ {c:'ギ',r:'gi',e:'🎸',words:[{w:'ギター',r:'gitaa',en:'guitar'}]},
+ {c:'グ',r:'gu',e:'🍭',words:[{w:'グミ',r:'gumi',en:'gummy'}]},
+ {c:'ゲ',r:'ge',e:'🎮',words:[{w:'ゲーム',r:'geemu',en:'game'}]},
+ {c:'ゴ',r:'go',e:'🦍',words:[{w:'ゴリラ',r:'gorira',en:'gorilla'}]},
+ {c:'ザ',r:'za',e:'🦞',words:[{w:'ザリガニ',r:'zarigani',en:'crayfish'}]},
+ {c:'ジ',r:'ji',e:'👖',words:[{w:'ジーンズ',r:'jiinzu',en:'jeans'}]},
+ {c:'ズ',r:'zu',e:'🩳',words:[{w:'ズボン',r:'zubon',en:'pants'}]},
+ {c:'ゼ',r:'ze',e:'🍮',words:[{w:'ゼリー',r:'zerii',en:'jelly'}]},
+ {c:'ゾ',r:'zo',e:'🧟',words:[{w:'ゾンビ',r:'zonbi',en:'zombie'}]},
+ {c:'ダ',r:'da',e:'💃',words:[{w:'ダンス',r:'dansu',en:'dance'}]},
+ {c:'ヂ',r:'ji',e:'🔤',words:[],note:'カタカナの「ヂ」は ほとんど つかいません。(Almost never used.)'},
+ {c:'ヅ',r:'zu',e:'🔤',words:[],note:'カタカナの「ヅ」は ほとんど つかいません。(Almost never used.)'},
+ {c:'デ',r:'de',e:'🍰',words:[{w:'デザート',r:'dezaato',en:'dessert'}]},
+ {c:'ド',r:'do',e:'🚪',words:[{w:'ドア',r:'doa',en:'door'}]},
+ {c:'バ',r:'ba',e:'🍌',words:[{w:'バナナ',r:'banana',en:'banana'}]},
+ {c:'ビ',r:'bi',e:'🏢',words:[{w:'ビル',r:'biru',en:'building'}]},
+ {c:'ブ',r:'bu',e:'🍇',words:[{w:'ブドウ',r:'budoo',en:'grape'}]},
+ {c:'ベ',r:'be',e:'🔔',words:[{w:'ベル',r:'beru',en:'bell'}]},
+ {c:'ボ',r:'bo',e:'⚽',words:[{w:'ボール',r:'booru',en:'ball'}]},
+ {c:'パ',r:'pa',e:'🍞',words:[{w:'パン',r:'pan',en:'bread'}]},
+ {c:'ピ',r:'pi',e:'🎹',words:[{w:'ピアノ',r:'piano',en:'piano'}]},
+ {c:'プ',r:'pu',e:'🏊',words:[{w:'プール',r:'puuru',en:'pool'}]},
+ {c:'ペ',r:'pe',e:'🖊️',words:[{w:'ペン',r:'pen',en:'pen'}]},
+ {c:'ポ',r:'po',e:'📮',words:[{w:'ポスト',r:'posuto',en:'mailbox'}]},
+ {c:'キャ',r:'kya',e:'🥬',words:[{w:'キャベツ',r:'kyabetsu',en:'cabbage'}]},
+ {c:'キュ',r:'kyu',e:'😍',words:[{w:'キュート',r:'kyuuto',en:'cute'}]},
+ {c:'キョ',r:'kyo',e:'🔤',words:[],note:'この おとは カタカナの ことばの さいしょには あまり つかいません。(Rarely starts a word.)'},
+ {c:'シャ',r:'sha',e:'👕',words:[{w:'シャツ',r:'shatsu',en:'shirt'}]},
+ {c:'シュ',r:'shu',e:'🥐',words:[{w:'シュークリーム',r:'shuukuriimu',en:'cream puff'}]},
+ {c:'ショ',r:'sho',e:'⚡',words:[{w:'ショック',r:'shokku',en:'shock'}]},
+ {c:'チャ',r:'cha',e:'🎲',words:[{w:'チャンス',r:'chansu',en:'chance'}]},
+ {c:'チュ',r:'chu',e:'🌷',words:[{w:'チューリップ',r:'chuurippu',en:'tulip'}]},
+ {c:'チョ',r:'cho',e:'🍫',words:[{w:'チョコレート',r:'chokoreeto',en:'chocolate'}]},
+ {c:'ニャ',r:'nya',e:'🐈',words:[{w:'ニャー',r:'nyaa',en:'meow'}]},
+ {c:'ニュ',r:'nyu',e:'📰',words:[{w:'ニュース',r:'nyuusu',en:'news'}]},
+ {c:'ニョ',r:'nyo',e:'🔤',words:[],note:'この おとは カタカナの ことばの さいしょには あまり つかいません。(Rarely starts a word.)'},
+ {c:'ヒャ',r:'hya',e:'🔤',words:[],note:'この おとは カタカナの ことばの さいしょには あまり つかいません。(Rarely starts a word.)'},
+ {c:'ヒュ',r:'hyu',e:'🔌',words:[{w:'ヒューズ',r:'hyuuzu',en:'fuse'}]},
+ {c:'ヒョ',r:'hyo',e:'🔤',words:[],note:'この おとは カタカナの ことばの さいしょには あまり つかいません。(Rarely starts a word.)'},
+ {c:'ミャ',r:'mya',e:'🔤',words:[],note:'この おとは カタカナの ことばの さいしょには あまり つかいません。(Rarely starts a word.)'},
+ {c:'ミュ',r:'myu',e:'🎶',words:[{w:'ミュージック',r:'myuujikku',en:'music'}]},
+ {c:'ミョ',r:'myo',e:'🔤',words:[],note:'この おとは カタカナの ことばの さいしょには あまり つかいません。(Rarely starts a word.)'},
+ {c:'リャ',r:'rya',e:'🔤',words:[],note:'この おとは カタカナの ことばの さいしょには あまり つかいません。(Rarely starts a word.)'},
+ {c:'リュ',r:'ryu',e:'🎒',words:[{w:'リュック',r:'ryukku',en:'backpack'}]},
+ {c:'リョ',r:'ryo',e:'🔤',words:[],note:'この おとは カタカナの ことばの さいしょには あまり つかいません。(Rarely starts a word.)'},
+ {c:'ギャ',r:'gya',e:'😂',words:[{w:'ギャグ',r:'gyagu',en:'joke / gag'}]},
+ {c:'ギュ',r:'gyu',e:'🔤',words:[],note:'この おとは カタカナの ことばの さいしょには あまり つかいません。(Rarely starts a word.)'},
+ {c:'ギョ',r:'gyo',e:'🔤',words:[],note:'この おとは カタカナの ことばの さいしょには あまり つかいません。(Rarely starts a word.)'},
+ {c:'ジャ',r:'ja',e:'🍯',words:[{w:'ジャム',r:'jamu',en:'jam'}]},
+ {c:'ジュ',r:'ju',e:'🧃',words:[{w:'ジュース',r:'juusu',en:'juice'}]},
+ {c:'ジョ',r:'jo',e:'🏃',words:[{w:'ジョギング',r:'jogingu',en:'jogging'}]},
+ {c:'ビャ',r:'bya',e:'🔤',words:[],note:'この おとは カタカナの ことばの さいしょには あまり つかいません。(Rarely starts a word.)'},
+ {c:'ビュ',r:'byu',e:'🎤',words:[{w:'インタビュー',r:'intabyuu',en:'interview'}]},
+ {c:'ビョ',r:'byo',e:'🔤',words:[],note:'この おとは カタカナの ことばの さいしょには あまり つかいません。(Rarely starts a word.)'},
+ {c:'ピャ',r:'pya',e:'🔤',words:[],note:'この おとは カタカナの ことばの さいしょには あまり つかいません。(Rarely starts a word.)'},
+ {c:'ピュ',r:'pyu',e:'💻',words:[{w:'コンピューター',r:'konpyuutaa',en:'computer'}]},
+ {c:'ピョ',r:'pyo',e:'🔤',words:[],note:'この おとは カタカナの ことばの さいしょには あまり つかいません。(Rarely starts a word.)'}
+];
+
+const MODES = [
+ {id:1, label:'ひらがな レベル1', sub:'seion (a, i, u...)', bg:'var(--sakura)', pool:()=>HIRA_L1},
+ {id:2, label:'ひらがな レベル2', sub:'dakuten / youon', bg:'var(--lav)', pool:()=>HIRA_L2},
+ {id:3, label:'ひらがな ミックス', sub:'Level 1 + 2', bg:'var(--sky)', pool:()=>HIRA_L1.concat(HIRA_L2)},
+ {id:4, label:'カタカナ レベル1', sub:'seion (a, i, u...)', bg:'var(--mint)', pool:()=>KATA_L1},
+ {id:5, label:'カタカナ レベル2', sub:'dakuten / youon', bg:'var(--lemon)', pool:()=>KATA_L2},
+ {id:6, label:'カタカナ ミックス', sub:'Level 1 + 2', bg:'var(--sakura)', pool:()=>KATA_L1.concat(KATA_L2)},
+ {id:7, label:'ぜんぶ ミックス', sub:'Everything!', bg:'var(--lav)', pool:()=>HIRA_L1.concat(HIRA_L2, KATA_L1, KATA_L2)}
+];
+
+/* =========================================================================
+   STATE
+========================================================================= */
+let session = null; // { pool, distractorPool, items, idx, score, answers[], label }
+let jaVoice = null;
+const KEYWORD = 'nihongohirakata';
+
+/* =========================================================================
+   AUDIO: TTS + beep effects
+========================================================================= */
+function pickVoice(){
+  const voices = speechSynthesis.getVoices();
+  jaVoice = voices.find(v => v.lang === 'ja-JP' && /google/i.test(v.name))
+        || voices.find(v => v.lang === 'ja-JP') || null;
+}
+if('speechSynthesis' in window){
+  pickVoice();
+  speechSynthesis.onvoiceschanged = pickVoice;
+}
+function speakJa(text){
+  if(!('speechSynthesis' in window)) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'ja-JP';
+  if(jaVoice) u.voice = jaVoice;
+  u.rate = 0.85; u.pitch = 1.15;
+  speechSynthesis.speak(u);
+}
+
+/* は and へ are also common particles (pronounced "wa" / "e"), so most
+   Japanese TTS voices misread them when spoken alone as a single letter.
+   Swap to the katakana form for speech only (katakana has no particle
+   reading, so it's always read correctly as "ha" / "he"); the on-screen
+   text still shows the real hiragana character. */
+const TTS_LETTER_OVERRIDE = { 'は':'ハ', 'へ':'ヘ' };
+function speakChar(c){
+  speakJa(`${TTS_LETTER_OVERRIDE[c] || c}！`);
+}
+let audioCtx = null;
+function getCtx(){
+  if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+function beep(correct){
+  try{
+    const ctx = getCtx();
+    const notes = correct ? [523.25, 783.99] : [220, 174.6];
+    let t = ctx.currentTime;
+    notes.forEach((f,i)=>{
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = correct ? 'sine' : 'sawtooth';
+      osc.frequency.value = f;
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(0.25, t+0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t+0.22);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(t); osc.stop(t+0.24);
+      t += correct ? 0.15 : 0.18;
+    });
+  }catch(e){ /* audio not available */ }
+}
+
+/* =========================================================================
+   GATE
+========================================================================= */
+const gateInput = document.getElementById('gateInput');
+const gateBtn = document.getElementById('gateBtn');
+const gateError = document.getElementById('gateError');
+const MASK_CHAR = '・';
+let gateActualValue = '';
+
+/* Mask the visible input as "・・・" while tracking the real typed text
+   separately, so the secret keyword is never shown on screen. */
+gateInput.addEventListener('input', (e)=>{
+  const type = e.inputType || '';
+  if(type === 'insertText' || type === 'insertFromPaste' || type === 'insertCompositionText'){
+    if(e.data) gateActualValue += e.data;
+  } else if(type === 'deleteContentBackward' || type === 'deleteContentForward' || type === 'deleteByCut'){
+    gateActualValue = gateActualValue.slice(0, -1);
+  } else {
+    /* Fallback for browsers that don't report inputType: infer from length change. */
+    const shown = e.target.value.replace(new RegExp(MASK_CHAR,'g'), '');
+    if(e.target.value.length > gateActualValue.length){
+      gateActualValue += shown || '?';
+    } else {
+      gateActualValue = gateActualValue.slice(0, e.target.value.length);
+    }
+  }
+  gateError.classList.add('hidden');
+  e.target.value = MASK_CHAR.repeat(gateActualValue.length);
+});
+
+function tryUnlock(){
+  const val = gateActualValue.trim().toLowerCase();
+  if(val === KEYWORD){
+    try{ getCtx(); }catch(e){}
+    speechSynthesis.getVoices();
+    showScreen('homeScreen');
+  } else {
+    gateError.classList.remove('hidden');
+  }
+}
+gateBtn.addEventListener('click', tryUnlock);
+gateInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') tryUnlock(); });
+
+/* =========================================================================
+   SCREEN SWITCH
+========================================================================= */
+function showScreen(id){
+  ['gateScreen','homeScreen','quizScreen','resultScreen'].forEach(s=>{
+    document.getElementById(s).classList.toggle('hidden', s !== id);
+  });
+  window.scrollTo(0,0);
+}
+
+/* =========================================================================
+   HOME
+========================================================================= */
+const modeGrid = document.getElementById('modeGrid');
+MODES.forEach(m=>{
+  const btn = document.createElement('button');
+  btn.className = 'mode-card';
+  btn.style.background = m.bg;
+  btn.innerHTML = `<div class="text-2xl font-black">${m.label}</div><div class="text-xs text-gray-500">${m.sub}</div>`;
+  btn.addEventListener('click', ()=> startQuiz(m));
+  modeGrid.appendChild(btn);
+});
+
+/* =========================================================================
+   QUIZ ENGINE
+========================================================================= */
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
+function startQuiz(mode, customItems){
+  const fullPool = mode.pool();
+  const items = customItems ? customItems : shuffle(fullPool).slice(0, Math.min(10, fullPool.length));
+  session = {
+    label: mode.label,
+    distractorPool: fullPool,
+    items,
+    idx: 0,
+    score: 0,
+    answers: [],
+    mode
+  };
+  showScreen('quizScreen');
+  renderQuestion();
+}
+
+function buildChoices(correctItem){
+  const pool = session.distractorPool.filter(x => x.r !== correctItem.r && x.c !== correctItem.c);
+  const seenRomaji = new Set([correctItem.r]);
+  const distractors = [];
+  const shuffled = shuffle(pool);
+  for(const cand of shuffled){
+    if(distractors.length >= 3) break;
+    if(seenRomaji.has(cand.r)) continue;
+    seenRomaji.add(cand.r);
+    distractors.push({ r: cand.r, c: cand.c });
+  }
+  while(distractors.length < 3){
+    distractors.push({ r: correctItem.r + 'x'.repeat(distractors.length+1), c: '?' });
+  }
+  return shuffle([{ r: correctItem.r, c: correctItem.c }, ...distractors]);
+}
+
+function renderQuestion(){
+  const item = session.items[session.idx];
+  document.getElementById('quizModeLabel').textContent = session.label;
+  document.getElementById('quizCount').textContent = `${session.idx+1} / ${session.items.length}`;
+  document.getElementById('progressFill').style.width = `${((session.idx)/session.items.length)*100}%`;
+
+  document.getElementById('quizChar').textContent = item.c;
+
+  document.getElementById('revealArea').classList.add('hidden');
+  document.getElementById('quizEmoji').textContent = '';
+  document.getElementById('wordRow').innerHTML = '';
+  document.getElementById('quizNote').classList.add('hidden');
+
+  const choices = buildChoices(item);
+  const grid = document.getElementById('choiceGrid');
+  grid.innerHTML = '';
+  choices.forEach(choice=>{
+    const btn = document.createElement('button');
+    btn.className = 'choice-btn';
+    btn.dataset.romaji = choice.r;
+    btn.innerHTML = `
+      <div class="romaji-text">${choice.r}</div>
+      <div class="choice-kana hidden">${choice.c}</div>
+    `;
+    btn.addEventListener('click', ()=> handleAnswer(choice.r, item, btn, grid));
+    grid.appendChild(btn);
+  });
+
+  document.getElementById('quizSpeakBtn').onclick = ()=> speakChar(item.c);
+  speakChar(item.c);
+}
+
+function revealAnswerInfo(item){
+  document.getElementById('quizEmoji').textContent = item.e;
+
+  const wordRow = document.getElementById('wordRow');
+  wordRow.innerHTML = '';
+  item.words.forEach(w=>{
+    const chip = document.createElement('div');
+    chip.className = 'word-chip';
+    chip.innerHTML = `<div class="text-lg font-bold">${w.w}</div><div class="text-xs text-gray-400">${w.r}</div><div class="text-xs text-gray-500">${w.en}</div>`;
+    wordRow.appendChild(chip);
+  });
+
+  const noteEl = document.getElementById('quizNote');
+  if(item.note){ noteEl.textContent = item.note; noteEl.classList.remove('hidden'); }
+  else { noteEl.classList.add('hidden'); }
+
+  document.getElementById('revealArea').classList.remove('hidden');
+}
+
+function handleAnswer(choiceRomaji, item, btnEl, grid){
+  Array.from(grid.children).forEach(b => {
+    b.disabled = true;
+    b.querySelector('.choice-kana').classList.remove('hidden');
+  });
+  const isCorrect = choiceRomaji === item.r;
+  btnEl.classList.add(isCorrect ? 'correct' : 'wrong');
+  if(!isCorrect){
+    Array.from(grid.children).find(b => b.dataset.romaji === item.r)?.classList.add('correct');
+  }
+  beep(isCorrect);
+  showFx(isCorrect);
+  if(isCorrect) session.score++;
+  session.answers.push({item, correct:isCorrect, chosen:choiceRomaji});
+
+  revealAnswerInfo(item);
+}
+
+document.getElementById('nextBtn').addEventListener('click', ()=>{
+  session.idx++;
+  if(session.idx < session.items.length){
+    renderQuestion();
+  } else {
+    renderResult();
+  }
+});
+
+function showFx(correct){
+  const mark = document.getElementById('fxMark');
+  mark.textContent = correct ? '⭕' : '❌';
+  mark.style.color = correct ? '#3FAE83' : '#E05D5D';
+  mark.classList.remove('show');
+  void mark.offsetWidth;
+  mark.classList.add('show');
+}
+
+/* =========================================================================
+   RESULT
+========================================================================= */
+function renderResult(){
+  showScreen('resultScreen');
+  const total = session.items.length;
+  const score = session.score;
+  const passLine = Math.ceil(total * 0.8);
+  const passed = score >= passLine;
+
+  document.getElementById('resultEmoji').textContent = passed ? '💮' : '🌟';
+  document.getElementById('resultTitle').textContent = passed
+    ? 'クリア！たいへんよくできました！'
+    : 'もう一回挑戦してみよう！';
+  document.getElementById('resultScore').textContent = `${score} / ${total} もん せいかい`;
+  document.getElementById('reviewHeading').textContent = `📋 ふりかえり (Review) — 出題された ${total}もん`;
+
+  const reviewList = document.getElementById('reviewList');
+  reviewList.innerHTML = '';
+  session.answers.forEach(a=>{
+    const row = document.createElement('div');
+    row.className = 'review-item';
+    const answerLine = a.correct
+      ? `<div class="font-bold" style="color:var(--mint-d);">${a.item.r}</div>`
+      : `<div class="font-bold" style="color:#E05D5D;">あなたの こたえ: ${a.chosen}</div><div class="font-bold" style="color:var(--mint-d);">せいかい: ${a.item.r}</div>`;
+    row.innerHTML = `
+      <div style="font-size:34px;">${a.correct ? '✅' : '❌'}</div>
+      <div style="font-size:38px; font-weight:900; color:var(--sakura-d);">${a.item.c}</div>
+      <div class="flex-1">
+        ${answerLine}
+        <div class="text-xs text-gray-400">${a.item.words[0] ? a.item.words[0].w + ' (' + a.item.words[0].en + ')' : ''}</div>
+      </div>
+      <button class="speak-btn" style="width:44px;height:44px;font-size:18px;">🔊</button>
+    `;
+    row.querySelector('button').addEventListener('click', ()=> speakChar(a.item.c));
+    reviewList.appendChild(row);
+  });
+
+  const wrongItems = session.answers.filter(a=>!a.correct).map(a=>a.item);
+  const retryBtn = document.getElementById('retryWrongBtn');
+  if(wrongItems.length > 0){
+    retryBtn.classList.remove('hidden');
+    retryBtn.onclick = ()=> startQuiz(session.mode, shuffle(wrongItems));
+  } else {
+    retryBtn.classList.add('hidden');
+  }
+
+  document.getElementById('sameModeBtn').onclick = ()=> startQuiz(session.mode);
+  document.getElementById('homeBtn').onclick = ()=> showScreen('homeScreen');
+
+  if(passed) launchConfetti();
+}
+
+function launchConfetti(){
+  const colors = ['#FFB7CE','#B7E4C7','#C7B9F0','#FFF3A0','#A7DBF7'];
+  for(let i=0;i<80;i++){
+    const el = document.createElement('div');
+    el.className = 'confetti';
+    const size = 6 + Math.random()*8;
+    el.style.width = size+'px';
+    el.style.height = (size*0.6)+'px';
+    el.style.left = (Math.random()*100)+'vw';
+    el.style.background = colors[Math.floor(Math.random()*colors.length)];
+    el.style.transform = `rotate(${Math.random()*360}deg)`;
+    document.body.appendChild(el);
+    const duration = 2200 + Math.random()*1800;
+    const drift = (Math.random()-0.5)*200;
+    el.animate([
+      { transform: `translate(0,0) rotate(0deg)`, opacity:1 },
+      { transform: `translate(${drift}px, 100vh) rotate(${360+Math.random()*360}deg)`, opacity:0.9 }
+    ], { duration, easing:'ease-in' });
+    setTimeout(()=> el.remove(), duration+100);
+  }
+}
+</script>
+</body>
+</html>
